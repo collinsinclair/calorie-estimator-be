@@ -83,7 +83,7 @@ class CalorieEstimatorService:
             raise
 
     async def get_multiple_estimates(
-        self, food_desc: str, num_estimates: int = 5
+        self, food_desc: str, num_estimates: int = 3
     ) -> list[CalorieEstimate]:
         """Get multiple calorie estimates in parallel."""
         self.logger.debug(
