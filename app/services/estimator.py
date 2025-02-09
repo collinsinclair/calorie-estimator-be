@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import json
 
 import numpy as np
 from openai import AsyncOpenAI
@@ -16,12 +17,17 @@ class CalorieEstimatorService:
             level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s"
         )
         self.logger = logging.getLogger(__name__)
+        # Log API key presence (not the key itself)
+        self.logger.debug(f"OpenAI API Key present: {bool(settings.OPENAI_API_KEY)}")
 
     async def get_single_estimate(self, food_desc: FoodDescription) -> CalorieEstimate:
         """Get a single calorie estimate from OpenAI with structured reasoning."""
-        self.logger.debug(f"Requesting calorie estimate for: {food_desc.description}")
+        self.logger.debug(
+            f"Starting single estimate request for: {food_desc.description}"
+        )
 
         try:
+            self.logger.debug("Initiating OpenAI API call...")
             completion = await self.client.beta.chat.completions.parse(
                 model="gpt-4o",
                 messages=[
@@ -42,10 +48,12 @@ class CalorieEstimatorService:
                 response_format=CalorieReasoning,
                 store=True,
             )
+            self.logger.debug("OpenAI API call completed successfully")
 
             message = completion.choices[0].message
+            self.logger.debug(f"Message received: {message}")
 
-            if message.refusal:
+            if hasattr(message, "refusal") and message.refusal:
                 self.logger.warning(
                     f"Model refused to analyze: {food_desc.description}"
                 )
@@ -53,27 +61,30 @@ class CalorieEstimatorService:
                 raise ValueError(f"Model refused analysis: {message.refusal}")
 
             reasoning = message.parsed
+            self.logger.debug(f"Parsed reasoning: {reasoning}")
 
             # Log the reasoning steps
-            for step in reasoning.steps:
-                self.logger.debug(f"Reasoning step: {step.explanation}")
+            for i, step in enumerate(reasoning.steps):
+                self.logger.debug(f"Reasoning step {i + 1}: {step.explanation}")
                 for component in step.components:
                     self.logger.debug(
                         f"Component: {component.name} = {component.calories} calories"
                         f" ({component.explanation})"
                     )
-                self.logger.debug(f"Subtotal after step: {step.subtotal}")
+                self.logger.debug(f"Subtotal after step {i + 1}: {step.subtotal}")
 
             # Create CalorieEstimate from the reasoned result
             estimate = CalorieEstimate(
                 value=reasoning.final_estimate, confidence=reasoning.confidence
             )
+            self.logger.debug(f"Created estimate: {estimate}")
 
             return estimate
 
         except Exception as e:
             self.logger.error(
-                f"Failed to get estimate for {food_desc.description}: {e}"
+                f"Failed to get estimate for {food_desc.description}: {str(e)}",
+                exc_info=True,
             )
             raise
 
@@ -87,28 +98,45 @@ class CalorieEstimatorService:
 
         tasks = [self.get_single_estimate(food_desc) for _ in range(num_estimates)]
 
+        self.logger.debug("Gathering parallel tasks...")
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
-        # Log errors if any task failed
+        # Log details about each task result
         for i, result in enumerate(results):
             if isinstance(result, Exception):
-                self.logger.error(f"Task {i} failed: {result}")
+                self.logger.error(
+                    f"Task {i} failed with error: {str(result)}", exc_info=True
+                )
+            else:
+                self.logger.debug(f"Task {i} succeeded with estimate: {result}")
 
         self.logger.debug(f"Completed parallel requests for: {food_desc.description}")
 
         # Filter out failed requests
-        return [r for r in results if isinstance(r, CalorieEstimate)]
+        valid_results = [r for r in results if isinstance(r, CalorieEstimate)]
+        self.logger.debug(
+            f"Number of valid results: {len(valid_results)} out of {num_estimates}"
+        )
+
+        return valid_results
 
     def analyze_estimates(self, estimates: list[CalorieEstimate]) -> dict:
         """Perform statistical analysis on estimates."""
+        self.logger.debug(f"Analyzing {len(estimates)} estimates")
+
         values = [est.value for est in estimates]
         confidences = [est.confidence for est in estimates]
 
+        self.logger.debug(f"Values: {values}")
+        self.logger.debug(f"Confidences: {confidences}")
+
         # Weight estimates by confidence
         weighted_mean = np.average(values, weights=confidences)
+        self.logger.debug(f"Calculated weighted mean: {weighted_mean}")
 
         # Calculate weighted standard deviation
         weighted_var = np.average((values - weighted_mean) ** 2, weights=confidences)
         weighted_std = np.sqrt(weighted_var)
+        self.logger.debug(f"Calculated weighted std dev: {weighted_std}")
 
         return {"weighted_mean": weighted_mean, "weighted_std": weighted_std}

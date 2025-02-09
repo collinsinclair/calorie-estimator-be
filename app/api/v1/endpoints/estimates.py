@@ -21,23 +21,28 @@ async def estimate_calories(food_input: FoodDescription) -> CalorieEstimateRespo
     """
     Estimate calories for a food description using multiple LLM queries.
     """
-    logger.info(f"Received estimation request: {food_input}")
+    logger.info(f"Received estimation request for: {food_input.description}")
 
     try:
-
+        logger.debug("Calling estimator service for multiple estimates...")
         estimates = await estimator_service.get_multiple_estimates(food_input)
+        logger.debug(f"Received {len(estimates)} estimates from service")
 
         if not estimates:
-            logger.error("No valid estimates returned!")
+            logger.error("No valid estimates returned from service!")
+            logger.error("Food description that failed: {food_input.description}")
             raise Exception("No valid estimates obtained.")
 
+        logger.debug("Analyzing estimates...")
         analysis = estimator_service.analyze_estimates(estimates)
+        logger.debug(f"Analysis results: {analysis}")
 
         confidence_interval = (
             analysis["weighted_mean"] - (1.96 * analysis["weighted_std"]),
             analysis["weighted_mean"] + (1.96 * analysis["weighted_std"]),
         )
         confidence_interval = (max(0, confidence_interval[0]), confidence_interval[1])
+        logger.debug(f"Calculated confidence interval: {confidence_interval}")
 
         response = CalorieEstimateResponse(
             estimates=estimates,
@@ -48,9 +53,9 @@ async def estimate_calories(food_input: FoodDescription) -> CalorieEstimateRespo
             input_description=food_input.description,
         )
 
-        logger.info(f"Successfully processed request: {food_input}")
+        logger.info(f"Successfully processed request. Response: {response}")
         return response
 
     except Exception as e:
-        logger.error(f"Failed to estimate calories: {e}")
+        logger.error(f"Failed to estimate calories: {str(e)}", exc_info=True)
         raise
