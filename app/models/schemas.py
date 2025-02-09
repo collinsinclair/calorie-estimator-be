@@ -51,3 +51,9 @@ class CalorieReasoning(BaseModel):
     steps: list[ReasoningStep] = Field(..., description="Steps in estimation process")
     final_estimate: float = Field(..., gt=0, description="Final calorie estimate")
     confidence: float = Field(..., ge=0, le=1, description="Confidence in the estimate")
+
+
+class FoodDescription(BaseModel):
+    """Schema for a food description."""
+
+    description: str = Field(..., description="Food description")

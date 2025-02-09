@@ -1,7 +1,7 @@
 import numpy as np
 from fastapi import APIRouter
 
-from app.models.schemas import CalorieEstimateResponse
+from app.models.schemas import CalorieEstimateResponse, FoodDescription
 from app.services.estimator import CalorieEstimatorService
 import logging
 
@@ -17,17 +17,13 @@ estimator_service = CalorieEstimatorService()
     summary="Estimate calories for a food description",
     response_description="Calorie estimation with confidence metrics",
 )
-async def estimate_calories(food_input: str) -> CalorieEstimateResponse:
+async def estimate_calories(food_input: FoodDescription) -> CalorieEstimateResponse:
     """
     Estimate calories for a food description using multiple LLM queries.
     """
     logger.info(f"Received estimation request: {food_input}")
 
     try:
-        cached_response = estimator_service.get_cached_estimate(food_input)
-        if cached_response:
-            logger.info(f"Returning cached response for: {food_input}")
-            return cached_response
 
         estimates = await estimator_service.get_multiple_estimates(food_input)
 
@@ -49,10 +45,8 @@ async def estimate_calories(food_input: str) -> CalorieEstimateResponse:
             median=np.median([est.value for est in estimates]),
             std_dev=analysis["weighted_std"],
             confidence_interval=confidence_interval,
-            input_description=food_input,
+            input_description=food_input.description,
         )
-
-        estimator_service.cache_estimate(food_input, response)
 
         logger.info(f"Successfully processed request: {food_input}")
         return response

@@ -1,35 +1,25 @@
 import asyncio
 import logging
-from datetime import datetime, timedelta
-from typing import Optional
 
 import numpy as np
 from openai import AsyncOpenAI
 
 from app.core.config import settings
-from app.models.schemas import CalorieEstimateResponse, CalorieEstimate
+from app.models.schemas import CalorieEstimate, FoodDescription
 from app.models.schemas import CalorieReasoning
-
-
-class CacheEntry:
-    def __init__(self, value: CalorieEstimateResponse):
-        self.value = value
-        self.timestamp = datetime.now()
 
 
 class CalorieEstimatorService:
     def __init__(self):
         self.client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
-        self.cache = {}
-        self.cache_ttl = timedelta(hours=24)
         logging.basicConfig(
             level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s"
         )
         self.logger = logging.getLogger(__name__)
 
-    async def get_single_estimate(self, food_desc: str) -> CalorieEstimate:
+    async def get_single_estimate(self, food_desc: FoodDescription) -> CalorieEstimate:
         """Get a single calorie estimate from OpenAI with structured reasoning."""
-        self.logger.debug(f"Requesting calorie estimate for: {food_desc}")
+        self.logger.debug(f"Requesting calorie estimate for: {food_desc.description}")
 
         try:
             completion = await self.client.beta.chat.completions.parse(
@@ -46,16 +36,19 @@ class CalorieEstimatorService:
                     },
                     {
                         "role": "user",
-                        "content": f"Calculate the calories in: {food_desc}",
+                        "content": f"Calculate the calories in: {food_desc.description}",
                     },
                 ],
                 response_format=CalorieReasoning,
+                store=True,
             )
 
             message = completion.choices[0].message
 
             if message.refusal:
-                self.logger.warning(f"Model refused to analyze: {food_desc}")
+                self.logger.warning(
+                    f"Model refused to analyze: {food_desc.description}"
+                )
                 self.logger.warning(f"Refusal message: {message.refusal}")
                 raise ValueError(f"Model refused analysis: {message.refusal}")
 
@@ -79,15 +72,17 @@ class CalorieEstimatorService:
             return estimate
 
         except Exception as e:
-            self.logger.error(f"Failed to get estimate for {food_desc}: {e}")
+            self.logger.error(
+                f"Failed to get estimate for {food_desc.description}: {e}"
+            )
             raise
 
     async def get_multiple_estimates(
-        self, food_desc: str, num_estimates: int = 3
+        self, food_desc: FoodDescription, num_estimates: int = 3
     ) -> list[CalorieEstimate]:
         """Get multiple calorie estimates in parallel."""
         self.logger.debug(
-            f"Starting {num_estimates} parallel requests for: {food_desc}"
+            f"Starting {num_estimates} parallel requests for: {food_desc.description}"
         )
 
         tasks = [self.get_single_estimate(food_desc) for _ in range(num_estimates)]
@@ -99,7 +94,7 @@ class CalorieEstimatorService:
             if isinstance(result, Exception):
                 self.logger.error(f"Task {i} failed: {result}")
 
-        self.logger.debug(f"Completed parallel requests for: {food_desc}")
+        self.logger.debug(f"Completed parallel requests for: {food_desc.description}")
 
         # Filter out failed requests
         return [r for r in results if isinstance(r, CalorieEstimate)]
@@ -117,29 +112,3 @@ class CalorieEstimatorService:
         weighted_std = np.sqrt(weighted_var)
 
         return {"weighted_mean": weighted_mean, "weighted_std": weighted_std}
-
-    def get_cached_estimate(
-        self, description: str
-    ) -> Optional[CalorieEstimateResponse]:
-        """Get cached estimate if available and not expired."""
-        if description in self.cache:
-            entry = self.cache[description]
-            if datetime.now() - entry.timestamp < self.cache_ttl:
-                return entry.value
-            else:
-                del self.cache[description]
-        return None
-
-    def cache_estimate(self, description: str, response: CalorieEstimateResponse):
-        """Cache estimation response."""
-        self.cache[description] = CacheEntry(response)
-
-        # Clean old entries
-        current_time = datetime.now()
-        expired_keys = [
-            k
-            for k, v in self.cache.items()
-            if current_time - v.timestamp > self.cache_ttl
-        ]
-        for k in expired_keys:
-            del self.cache[k]
