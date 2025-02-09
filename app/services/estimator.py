@@ -34,11 +34,12 @@ class CalorieEstimatorService:
                     {
                         "role": "system",
                         "content": """You are a nutrition expert. Break down food items into their components
-                        and calculate calories step by step. For each step:
-                        1. Explain your analysis
-                        2. List the specific components and their calorie contributions
-                        3. Keep a running subtotal
-                        Finally, provide your total estimate and confidence level based on your analysis.""",
+                            and calculate calories step by step. For each step:
+                            1. Explain your analysis
+                            2. List the specific components and their calorie contributions
+                            3. Keep a running subtotal
+                            Finally, provide your total estimate and confidence level based on your analysis.
+                            Express confidence as a decimal between 0 and 1 (e.g., 0.85 for 85% confidence).""",
                     },
                     {
                         "role": "user",
@@ -89,7 +90,7 @@ class CalorieEstimatorService:
             raise
 
     async def get_multiple_estimates(
-        self, food_desc: FoodDescription, num_estimates: int = 3
+        self, food_desc: FoodDescription, num_estimates: int = 10
     ) -> list[CalorieEstimate]:
         """Get multiple calorie estimates in parallel."""
         self.logger.debug(

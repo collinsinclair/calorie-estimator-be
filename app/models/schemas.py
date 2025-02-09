@@ -25,11 +25,19 @@ class CalorieEstimateResponse(BaseModel):
     input_description: str = Field(..., description="Original food description")
 
 
+class FoodDescription(BaseModel):
+    """Schema for a food description."""
+
+    description: str = Field(..., description="Food description")
+
+
 class CalorieComponent(BaseModel):
     """Schema for individual food component calorie analysis."""
 
     name: str = Field(..., description="Name of the food component")
-    calories: float = Field(..., gt=0, description="Calories in this component")
+    calories: float = Field(
+        ..., description="Calories in this component"
+    )  # Removed ge=0
     explanation: str = Field(..., description="Explanation of the calorie calculation")
 
 
@@ -41,7 +49,7 @@ class ReasoningStep(BaseModel):
         ..., description="Calorie components identified in this step"
     )
     subtotal: float = Field(
-        ..., gt=0, description="Running calorie subtotal after this step"
+        ..., description="Running calorie subtotal after this step"  # Removed ge=0
     )
 
 
@@ -49,11 +57,7 @@ class CalorieReasoning(BaseModel):
     """Schema for the complete calorie estimation reasoning."""
 
     steps: list[ReasoningStep] = Field(..., description="Steps in estimation process")
-    final_estimate: float = Field(..., gt=0, description="Final calorie estimate")
-    confidence: float = Field(..., ge=0, le=1, description="Confidence in the estimate")
-
-
-class FoodDescription(BaseModel):
-    """Schema for a food description."""
-
-    description: str = Field(..., description="Food description")
+    final_estimate: float = Field(
+        ..., description="Final calorie estimate"
+    )  # Removed ge=0
+    confidence: float = Field(..., description="Confidence in the estimate")

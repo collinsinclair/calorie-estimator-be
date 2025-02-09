@@ -41,14 +41,17 @@ async def estimate_calories(food_input: FoodDescription) -> CalorieEstimateRespo
             analysis["weighted_mean"] - (1.96 * analysis["weighted_std"]),
             analysis["weighted_mean"] + (1.96 * analysis["weighted_std"]),
         )
-        confidence_interval = (max(0, confidence_interval[0]), confidence_interval[1])
+        confidence_interval = (
+            max(0, round(confidence_interval[0])),
+            round(confidence_interval[1]),
+        )
         logger.debug(f"Calculated confidence interval: {confidence_interval}")
 
         response = CalorieEstimateResponse(
             estimates=estimates,
-            mean=analysis["weighted_mean"],
-            median=np.median([est.value for est in estimates]),
-            std_dev=analysis["weighted_std"],
+            mean=round(analysis["weighted_mean"]),
+            median=round(np.median([est.value for est in estimates])),
+            std_dev=round(analysis["weighted_std"]),
             confidence_interval=confidence_interval,
             input_description=food_input.description,
         )
