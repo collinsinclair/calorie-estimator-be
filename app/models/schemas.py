@@ -1,16 +1,6 @@
 from pydantic import BaseModel, Field, confloat, constr
 
 
-class FoodDescription(BaseModel):
-    """Schema for food description input."""
-
-    description: constr(min_length=1, max_length=500) = Field(
-        ...,
-        description="Description of the food item",
-        example="2 large eggs with 1 tablespoon of olive oil",
-    )
-
-
 class CalorieEstimate(BaseModel):
     """Schema for individual calorie estimates."""
 
@@ -33,3 +23,31 @@ class CalorieEstimateResponse(BaseModel):
         ..., description="95% confidence interval for the estimate"
     )
     input_description: str = Field(..., description="Original food description")
+
+
+class CalorieComponent(BaseModel):
+    """Schema for individual food component calorie analysis."""
+
+    name: str = Field(..., description="Name of the food component")
+    calories: float = Field(..., gt=0, description="Calories in this component")
+    explanation: str = Field(..., description="Explanation of the calorie calculation")
+
+
+class ReasoningStep(BaseModel):
+    """Schema for a single step in calorie estimation reasoning."""
+
+    explanation: str = Field(..., description="Explanation of this reasoning step")
+    components: list[CalorieComponent] = Field(
+        ..., description="Calorie components identified in this step"
+    )
+    subtotal: float = Field(
+        ..., gt=0, description="Running calorie subtotal after this step"
+    )
+
+
+class CalorieReasoning(BaseModel):
+    """Schema for the complete calorie estimation reasoning."""
+
+    steps: list[ReasoningStep] = Field(..., description="Steps in estimation process")
+    final_estimate: float = Field(..., gt=0, description="Final calorie estimate")
+    confidence: float = Field(..., ge=0, le=1, description="Confidence in the estimate")

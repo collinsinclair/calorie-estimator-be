@@ -1,14 +1,14 @@
-from openai import AsyncOpenAI
-from app.core.config import settings
+import asyncio
+import logging
 from datetime import datetime, timedelta
 from typing import Optional
-import asyncio
+
 import numpy as np
-import json
-import logging
+from openai import AsyncOpenAI
 
-
+from app.core.config import settings
 from app.models.schemas import CalorieEstimateResponse, CalorieEstimate
+from app.models.schemas import CalorieReasoning
 
 
 class CacheEntry:
@@ -28,42 +28,54 @@ class CalorieEstimatorService:
         self.logger = logging.getLogger(__name__)
 
     async def get_single_estimate(self, food_desc: str) -> CalorieEstimate:
-        """Get a single calorie estimate from OpenAI."""
+        """Get a single calorie estimate from OpenAI with structured reasoning."""
         self.logger.debug(f"Requesting calorie estimate for: {food_desc}")
+
         try:
-            response = await self.client.chat.completions.create(
-                model="o1-mini",
+            completion = await self.client.beta.chat.completions.parse(
+                model="gpt-4o",
                 messages=[
                     {
                         "role": "system",
-                        "content": "You are a nutrition expert. Estimate the calories in the given food. First think through the estimate, then return a JSON object with 'calories' (a positive number representing your final estimate) and 'confidence' (a number between 0 and 1, indicating how confident you are in the estimate). Use minimal whitespace in your response.",
+                        "content": """You are a nutrition expert. Break down food items into their components
+                        and calculate calories step by step. For each step:
+                        1. Explain your analysis
+                        2. List the specific components and their calorie contributions
+                        3. Keep a running subtotal
+                        Finally, provide your total estimate and confidence level based on your analysis.""",
                     },
                     {
                         "role": "user",
-                        "content": f"How many calories are in: {food_desc}",
+                        "content": f"Calculate the calories in: {food_desc}",
                     },
                 ],
-                response_format={"type": "json_object"},
-                temperature=0.8,
-                store=True
+                response_format=CalorieReasoning,
             )
 
-            self.logger.debug(f"Received response for {food_desc}: {response}")
+            message = completion.choices[0].message
 
-            # Parse and validate response
-            message = response.choices[0].message
-            if not message.content:
-                raise ValueError("No content in response")
+            if message.refusal:
+                self.logger.warning(f"Model refused to analyze: {food_desc}")
+                self.logger.warning(f"Refusal message: {message.refusal}")
+                raise ValueError(f"Model refused analysis: {message.refusal}")
 
-            result = json.loads(message.content)
+            reasoning = message.parsed
 
-            if "calories" not in result or "confidence" not in result:
-                raise ValueError("Missing required fields in response")
+            # Log the reasoning steps
+            for step in reasoning.steps:
+                self.logger.debug(f"Reasoning step: {step.explanation}")
+                for component in step.components:
+                    self.logger.debug(
+                        f"Component: {component.name} = {component.calories} calories"
+                        f" ({component.explanation})"
+                    )
+                self.logger.debug(f"Subtotal after step: {step.subtotal}")
 
+            # Create CalorieEstimate from the reasoned result
             estimate = CalorieEstimate(
-                value=float(result["calories"]), confidence=float(result["confidence"])
+                value=reasoning.final_estimate, confidence=reasoning.confidence
             )
-            self.logger.debug(f"Parsed estimate: {estimate}")
+
             return estimate
 
         except Exception as e:
