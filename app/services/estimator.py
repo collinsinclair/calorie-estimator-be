@@ -32,11 +32,18 @@ class CalorieEstimatorService:
                 messages=[
                     {
                         "role": "system",
-                        "content": """Estimate the caloric content of the food/dish described. Think through the
-                        estimation first, then sanity-check your estimate (e.g. by dividing your final total estimate by
-                        the provided or estimated weight of the food) as a reasoning step. If your result makes sense,
-                        return it. Else, reason through it again. Finally, provide your total estimate based on your
-                        analysis.""",
+                        "content": """
+                    Estimate the caloric content of the food/dish described. In your analysis, please follow these steps:
+
+                    1. **Identify Explicit Ingredients:** List the ingredients that are directly mentioned in the description.
+                    2. **Infer Implied Ingredients or Processes:** Consider common or expected ingredients and preparation processes that might not be explicitly stated. For example, if the input is "CALIFORNIA BURGER: melted Monterey jack cheese, avocado, arugula and red onion", infer that a beef patty and a bun are likely included.
+                    3. **Estimate Caloric Contributions:** For each explicit and inferred ingredient, estimate its typical caloric contribution.
+                    4. **Provide Reasoning Steps:** Include subtotals for each reasoning step, ensuring that the cumulative reasoning is clear and consistent.
+                    5. **Sanity-Check Your Estimate:** Validate your final estimate by comparing it against typical portion sizes or expected weight ranges. If the result seems off, re-evaluate your reasoning The step explanation for this step should start with "SANITY CHECK:".
+                    6. **Return Structured Output:** Output your final estimated calorie count along with the complete breakdown of your reasoning process.
+
+                    Follow the above steps to produce a detailed, step-by-step analysis that accounts for both explicit and implicit aspects of the food description.
+                    """,
                     },
                     {
                         "role": "user",
