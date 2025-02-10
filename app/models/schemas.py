@@ -1,13 +1,10 @@
-from pydantic import BaseModel, Field, confloat, constr
+from pydantic import BaseModel, Field, confloat
 
 
 class CalorieEstimate(BaseModel):
     """Schema for individual calorie estimates."""
 
     value: confloat(gt=0) = Field(..., description="Estimated calories")
-    confidence: confloat(ge=0, le=1) = Field(
-        ..., description="Confidence score of the estimate"
-    )
 
 
 class CalorieEstimateResponse(BaseModel):
@@ -35,9 +32,7 @@ class CalorieComponent(BaseModel):
     """Schema for individual food component calorie analysis."""
 
     name: str = Field(..., description="Name of the food component")
-    calories: float = Field(
-        ..., description="Calories in this component"
-    )  # Removed ge=0
+    calories: float = Field(..., description="Calories in this component")
     explanation: str = Field(..., description="Explanation of the calorie calculation")
 
 
@@ -48,16 +43,11 @@ class ReasoningStep(BaseModel):
     components: list[CalorieComponent] = Field(
         ..., description="Calorie components identified in this step"
     )
-    subtotal: float = Field(
-        ..., description="Running calorie subtotal after this step"  # Removed ge=0
-    )
+    subtotal: float = Field(..., description="Running calorie subtotal after this step")
 
 
 class CalorieReasoning(BaseModel):
     """Schema for the complete calorie estimation reasoning."""
 
     steps: list[ReasoningStep] = Field(..., description="Steps in estimation process")
-    final_estimate: float = Field(
-        ..., description="Final calorie estimate"
-    )  # Removed ge=0
-    confidence: float = Field(..., description="Confidence in the estimate")
+    final_estimate: float = Field(..., description="Final calorie estimate")

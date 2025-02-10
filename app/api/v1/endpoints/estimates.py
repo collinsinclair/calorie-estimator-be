@@ -1,9 +1,10 @@
+import logging
+
 import numpy as np
 from fastapi import APIRouter
 
 from app.models.schemas import CalorieEstimateResponse, FoodDescription
 from app.services.estimator import CalorieEstimatorService
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +16,7 @@ estimator_service = CalorieEstimatorService()
     "/estimate",
     response_model=CalorieEstimateResponse,
     summary="Estimate calories for a food description",
-    response_description="Calorie estimation with confidence metrics",
+    response_description="Calorie estimation with statistical metrics",
 )
 async def estimate_calories(food_input: FoodDescription) -> CalorieEstimateResponse:
     """
@@ -37,10 +38,11 @@ async def estimate_calories(food_input: FoodDescription) -> CalorieEstimateRespo
         analysis = estimator_service.analyze_estimates(estimates)
         logger.debug(f"Analysis results: {analysis}")
 
-        confidence_interval = (
-            analysis["weighted_mean"] - (1.96 * analysis["weighted_std"]),
-            analysis["weighted_mean"] + (1.96 * analysis["weighted_std"]),
-        )
+        values = [est.value for est in estimates]
+        mean = np.mean(values)
+        std_dev = np.std(values)
+
+        confidence_interval = (mean - (1.96 * std_dev), mean + (1.96 * std_dev))
         confidence_interval = (
             max(0, round(confidence_interval[0])),
             round(confidence_interval[1]),
@@ -49,9 +51,9 @@ async def estimate_calories(food_input: FoodDescription) -> CalorieEstimateRespo
 
         response = CalorieEstimateResponse(
             estimates=estimates,
-            mean=round(analysis["weighted_mean"]),
-            median=round(np.median([est.value for est in estimates])),
-            std_dev=round(analysis["weighted_std"]),
+            mean=round(mean),
+            median=round(np.median(values)),
+            std_dev=round(std_dev),
             confidence_interval=confidence_interval,
             input_description=food_input.description,
         )

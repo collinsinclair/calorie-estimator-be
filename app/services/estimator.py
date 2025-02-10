@@ -1,6 +1,5 @@
 import asyncio
 import logging
-import json
 
 import numpy as np
 from openai import AsyncOpenAI
@@ -38,8 +37,7 @@ class CalorieEstimatorService:
                             1. Explain your analysis
                             2. List the specific components and their calorie contributions
                             3. Keep a running subtotal
-                            Finally, provide your total estimate and confidence level based on your analysis.
-                            Express confidence as a decimal between 0 and 1 (e.g., 0.85 for 85% confidence).""",
+                            Finally, provide your total estimate based on your analysis.""",
                     },
                     {
                         "role": "user",
@@ -75,9 +73,7 @@ class CalorieEstimatorService:
                 self.logger.debug(f"Subtotal after step {i + 1}: {step.subtotal}")
 
             # Create CalorieEstimate from the reasoned result
-            estimate = CalorieEstimate(
-                value=reasoning.final_estimate, confidence=reasoning.confidence
-            )
+            estimate = CalorieEstimate(value=reasoning.final_estimate)
             self.logger.debug(f"Created estimate: {estimate}")
 
             return estimate
@@ -126,18 +122,12 @@ class CalorieEstimatorService:
         self.logger.debug(f"Analyzing {len(estimates)} estimates")
 
         values = [est.value for est in estimates]
-        confidences = [est.confidence for est in estimates]
-
         self.logger.debug(f"Values: {values}")
-        self.logger.debug(f"Confidences: {confidences}")
 
-        # Weight estimates by confidence
-        weighted_mean = np.average(values, weights=confidences)
-        self.logger.debug(f"Calculated weighted mean: {weighted_mean}")
+        mean = np.mean(values)
+        std = np.std(values)
 
-        # Calculate weighted standard deviation
-        weighted_var = np.average((values - weighted_mean) ** 2, weights=confidences)
-        weighted_std = np.sqrt(weighted_var)
-        self.logger.debug(f"Calculated weighted std dev: {weighted_std}")
+        self.logger.debug(f"Calculated mean: {mean}")
+        self.logger.debug(f"Calculated std dev: {std}")
 
-        return {"weighted_mean": weighted_mean, "weighted_std": weighted_std}
+        return {"mean": mean, "std": std}
