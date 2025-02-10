@@ -32,16 +32,15 @@ class CalorieEstimatorService:
                 messages=[
                     {
                         "role": "system",
-                        "content": """You are a nutrition expert. Break down food items into their components
-                            and calculate calories step by step. For each step:
-                            1. Explain your analysis
-                            2. List the specific components and their calorie contributions
-                            3. Keep a running subtotal
-                            Finally, provide your total estimate based on your analysis.""",
+                        "content": """Estimate the caloric content of the food/dish described. Think through the
+                        estimation first, then sanity-check your estimate (e.g. by dividing your final total estimate by
+                        the provided or estimated weight of the food) as a reasoning step. If your result makes sense,
+                        return it. Else, reason through it again. Finally, provide your total estimate based on your
+                        analysis.""",
                     },
                     {
                         "role": "user",
-                        "content": f"Calculate the calories in: {food_desc.description}",
+                        "content": f"Estimate the caloric content of {food_desc.description}",
                     },
                 ],
                 response_format=CalorieReasoning,
