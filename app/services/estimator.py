@@ -28,7 +28,7 @@ class CalorieEstimatorService:
         try:
             self.logger.debug("Initiating OpenAI API call...")
             completion = await self.client.beta.chat.completions.parse(
-                model="gpt-4o",
+                model="gpt-4o-mini",
                 messages=[
                     {
                         "role": "system",
@@ -86,7 +86,7 @@ class CalorieEstimatorService:
             raise
 
     async def get_multiple_estimates(
-        self, food_desc: FoodDescription, num_estimates: int = 10
+        self, food_desc: FoodDescription, num_estimates: int = 100
     ) -> list[CalorieEstimate]:
         """Get multiple calorie estimates in parallel."""
         self.logger.debug(
